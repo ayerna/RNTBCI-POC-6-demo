@@ -1,8 +1,23 @@
 # ─── BMS Pipeline Configuration ───────────────────────────────────────────────
-
+#
+# All paths are resolved relative to THIS file so the project works on any
+# machine after cloning — no edits needed unless you place the CSV elsewhere.
+#
 import os
 
-CSV_PATH        = r"d:\renaults_z\bms_processed_1hz.csv"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+
+# ── Dataset ────────────────────────────────────────────────────────────────────
+# Default: looks for the CSV in the same folder as this script.
+# Override with the CSV_PATH environment variable if stored elsewhere:
+#   set CSV_PATH=C:\data\bms_processed_1hz.csv  (Windows)
+#   export CSV_PATH=/data/bms_processed_1hz.csv  (Linux/Mac)
+#
+# If the file does not exist, run:  python generate_sample_data.py
+CSV_PATH = os.environ.get(
+    "CSV_PATH",
+    os.path.join(_HERE, "bms_processed_1hz.csv")
+)
 
 # ── Trip Simulation ────────────────────────────────────────────────────────────
 TRIP_HOURS      = 2                        # simulated trip duration in hours
@@ -26,14 +41,14 @@ LLM_TEMPERATURE = 0.2          # low = more deterministic, less hallucination
 DRIVER_NAME     = "Driver"     # overridden at startup by user input
 
 # ── Storage ───────────────────────────────────────────────────────────────────
-KB_JSON_PATH    = r"d:\renaults_z\bms_pipeline\knowledge_base.json"
+KB_JSON_PATH    = os.path.join(_HERE, "knowledge_base.json")
 
 # ── Speech ────────────────────────────────────────────────────────────────────
-WHISPER_MODEL   = "base"        # tiny | base | small | medium (larger = slower but more accurate)
-MIC_RECORD_SECS = 6             # how many seconds of audio to capture per query
+WHISPER_MODEL   = "base"        # tiny | base | small | medium
+MIC_RECORD_SECS = 6             # seconds of audio captured per voice query
 TTS_RATE        = 165           # pyttsx3 speech rate (words per minute)
-TTS_VOLUME      = 1.0           # 0.0 – 1.0
-SPEECH_ENABLED  = True          # set False to disable TTS/STT even if modules present
+TTS_VOLUME      = 1.0           # 0.0 - 1.0
+SPEECH_ENABLED  = True          # set False to disable TTS/STT entirely
 
 # ── Thresholds ─────────────────────────────────────────────────────────────────
 THRESHOLDS = {

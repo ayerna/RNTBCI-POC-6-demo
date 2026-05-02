@@ -3,7 +3,6 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-.Python
 *.egg
 *.egg-info/
 dist/
@@ -14,15 +13,14 @@ build/
 venv/
 env/
 
-# Large data files (do not commit)
-*.csv
+# Large REAL dataset (do not commit — use generate_sample_data.py instead)
 bms_processed_1hz.csv
 
-# Generated outputs (optional — comment out to track KB)
+# Generated KB output (re-created at runtime)
 knowledge_base.json
 
 # Whisper model cache
-~/.cache/whisper/
+whisper_cache/
 
 # IDE
 .vscode/
