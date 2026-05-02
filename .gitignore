@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Large data files (do not commit)
+*.csv
+bms_processed_1hz.csv
+
+# Generated outputs (optional — comment out to track KB)
+knowledge_base.json
+
+# Whisper model cache
+~/.cache/whisper/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
