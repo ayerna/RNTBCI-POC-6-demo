@@ -13,9 +13,6 @@ build/
 venv/
 env/
 
-# Large REAL dataset (do not commit — use generate_sample_data.py instead)
-bms_processed_1hz.csv
-
 # Generated KB output (re-created at runtime)
 knowledge_base.json
 

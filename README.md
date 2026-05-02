@@ -181,8 +181,11 @@ The system is designed to feel like a **real vehicle AI assistant** interacting 
 | `State` | — | Drive state label (Idle/Discharge/Charge/Regen) |
 | `cycle_id` | — | Charge/discharge cycle index |
 
-> The CSV is **not included in this repository** (large file, ~5 MB).
-> Contact the project owner or place your own 1 Hz BMS dataset with the columns above.
+> The real dataset **`bms_processed_1hz.csv`** is included in this repository (5 MB).
+> A synthetic alternative can also be generated locally:
+> ```bash
+> python generate_sample_data.py
+> ```
 
 ---
 
@@ -205,15 +208,21 @@ pip install pandas numpy rich ollama pyttsx3 openai-whisper sounddevice
 ### Clone this repository
 
 ```bash
+# 1. Clone
 git clone https://github.com/ayerna/RNTBCI-POC-6-demo.git
 cd RNTBCI-POC-6-demo
-```
 
-### Configure paths
+# 2. Install dependencies
+pip install -r requirements.txt
 
-Edit `config.py`:
-```python
-CSV_PATH = r"path\to\your\bms_processed_1hz.csv"
+# 3. Pull the LLM (needs Ollama installed — https://ollama.com)
+ollama pull llama3
+
+# 4. Run — the real dataset is already included in the repo
+python main.py
+
+# (Optional) Generate a fresh synthetic dataset instead of the real one
+# python generate_sample_data.py
 ```
 
 ---
