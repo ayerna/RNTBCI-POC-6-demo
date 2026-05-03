@@ -1,9 +1,15 @@
 """
 speech.py - Speech-to-Text (Whisper) + Text-to-Speech (pyttsx3)
-Gracefully degrades if hardware or libraries are unavailable.
+
+Production-ready:
+  - TTS runs on a single dedicated worker thread (avoids Windows COM re-entrancy)
+  - speak() is thread-safe and non-blocking; blocks only when called from the
+    main thread after a queue.join() call (optional)
+  - Gracefully degrades if hardware or libraries are unavailable
 """
 
 import io
+import queue
 import threading
 import logger
 from config import (WHISPER_MODEL, MIC_RECORD_SECS,
@@ -15,9 +21,31 @@ _tts_engine      = None
 _stt_available   = False
 _tts_available   = False
 
+# ── TTS worker queue (pyttsx3 must live on one thread on Windows) ──────────────
+_tts_queue: queue.Queue = queue.Queue()
+_tts_thread: threading.Thread | None = None
+
+
+def _tts_worker() -> None:
+    """Dedicated worker thread — owns the pyttsx3 engine for its lifetime."""
+    global _tts_engine
+    while True:
+        text = _tts_queue.get()
+        if text is None:          # shutdown sentinel
+            _tts_queue.task_done()
+            break
+        if _tts_engine and _tts_available:
+            try:
+                truncated = text if len(text) <= 600 else text[:600] + "..."
+                _tts_engine.say(truncated)
+                _tts_engine.runAndWait()
+            except Exception as e:
+                logger.log_speech(f"TTS error: {e}")
+        _tts_queue.task_done()
+
 
 def _init_tts() -> bool:
-    global _tts_engine, _tts_available
+    global _tts_engine, _tts_available, _tts_thread
     try:
         import pyttsx3
         _tts_engine = pyttsx3.init()
@@ -30,7 +58,14 @@ def _init_tts() -> bool:
                 _tts_engine.setProperty("voice", v.id)
                 break
         _tts_available = True
-        logger.log_speech("TTS engine (pyttsx3) ready.")
+
+        # Start the dedicated TTS worker thread
+        _tts_thread = threading.Thread(
+            target=_tts_worker, daemon=True, name="TTSWorker"
+        )
+        _tts_thread.start()
+
+        logger.log_speech("TTS engine (pyttsx3) ready — worker thread started.")
         return True
     except Exception as e:
         logger.log_speech(f"TTS unavailable: {e}")
@@ -69,23 +104,29 @@ def init_speech() -> tuple[bool, bool]:
 
 def speak(text: str) -> None:
     """
-    Speak the given text aloud via pyttsx3.
-    Blocks until speech is complete. Falls back to silent print if unavailable.
+    Queue text for speech output via the dedicated TTS worker thread.
+    Non-blocking from the caller's perspective.
+    Safe to call from any thread.
+    Falls back to silent no-op if TTS is unavailable.
     """
     if not _tts_available or not SPEECH_ENABLED:
-        return   # silent fallback — caller already prints the text
+        return   # caller already prints text to console
+    if not text or not text.strip():
+        return
+    _tts_queue.put(text.strip())
 
-    # pyttsx3 must run from main thread on Windows; use a lock if multi-threaded
-    try:
-        # Truncate very long responses to avoid overly long speech
-        truncated = text if len(text) <= 600 else text[:600] + "... (response truncated for speech)"
-        _tts_engine.say(truncated)
-        _tts_engine.runAndWait()
-    except RuntimeError:
-        # Already running — skip
-        pass
-    except Exception as e:
-        logger.log_speech(f"TTS error: {e}")
+
+def speak_blocking(text: str) -> None:
+    """
+    Speak text and block until the utterance is fully complete.
+    Useful for greetings / critical alerts where you want to wait.
+    """
+    if not _tts_available or not SPEECH_ENABLED:
+        return
+    if not text or not text.strip():
+        return
+    _tts_queue.put(text.strip())
+    _tts_queue.join()   # wait until the worker drains the queue
 
 
 # ── Speech-to-Text ─────────────────────────────────────────────────────────────
@@ -103,7 +144,6 @@ def listen() -> str | None:
     try:
         import sounddevice as sd
         import numpy as np
-        import whisper as _w
 
         logger.log_speech(f"Listening... speak now ({MIC_RECORD_SECS}s window)")
         sample_rate = 16_000
