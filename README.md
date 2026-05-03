@@ -108,10 +108,12 @@ The system is designed to feel like a **real vehicle AI assistant** interacting 
 | `windowing.py` | 3 / 4 | `process_window()` stats + trend engine; `generate_kb_entry()` natural-language KB builder |
 | `kb_store.py` | 5 | Thread-safe KB list, JSON persistence, query helpers, rule-based fallback summary |
 | `llm_agent.py` | 6 | Session object, greeting logic, context builder, Ollama query, timeout, fast-path |
-| `speech.py` | + | `init_speech()`, `speak()` (pyttsx3 TTS), `listen()` (Whisper STT) |
+| `speech.py` | + | `init_speech()`, `speak()` / `speak_blocking()` (pyttsx3 TTS, worker thread), `listen()` (Whisper STT) |
 | `logger.py` | + | Centralised Rich console: `[INJECT]`, `[WINDOW]`, `[KB]`, `[LLM]`, `[SPEECH]`, `[SYSTEM]` |
-| `main.py` | — | Orchestrator: mode selection, threading, CLI loop, session init |
+| `main.py` | — | Orchestrator: mode selection, threading, CLI loop, session init, spoken greeting |
+| `generate_sample_data.py` | — | Generates a synthetic `bms_processed_1hz.csv` when the real dataset is unavailable |
 | `smoke_test.py` | — | Fast non-interactive validation (no LLM/speech required) |
+| `tests.py` | — | 62-test production suite: unit, integration, concurrency, and edge-case tests |
 
 ---
 
@@ -192,38 +194,120 @@ The system is designed to feel like a **real vehicle AI assistant** interacting 
 ## Installation
 
 ### Prerequisites
-- Python 3.12+
-- [Ollama](https://ollama.com/) installed and running locally
-- `llama3` model pulled: `ollama pull llama3`
-- A microphone (optional, for voice input)
 
-### Install Python dependencies
+| Requirement | Version | Notes |
+|---|---|---|
+| Python | 3.10+ | 3.12 recommended |
+| [Ollama](https://ollama.com/) | latest | Required for LLM responses; fallback rule engine works without it |
+| `llama3` model | — | Pulled via `ollama pull llama3` after installing Ollama |
+| Microphone | — | Optional — only needed for voice input (`[S]` mode) |
+| VC++ Redistributable | latest | Windows only — required by `pyttsx3` |
 
-```bash
-pip install pandas numpy rich ollama pyttsx3 openai-whisper sounddevice
-```
+---
 
-> `openai-whisper` pulls `torch` (~2 GB on first install) — be patient.
-
-### Clone this repository
+### Step-by-step setup (Windows — copy-paste ready)
 
 ```bash
-# 1. Clone
+# 1. Clone the repository
 git clone https://github.com/ayerna/RNTBCI-POC-6-demo.git
 cd RNTBCI-POC-6-demo
 
-# 2. Install dependencies
+# 2. (Recommended) Create a virtual environment
+python -m venv .venv
+.venv\Scripts\activate
+
+# 3. Install Python dependencies
 pip install -r requirements.txt
 
-# 3. Pull the LLM (needs Ollama installed — https://ollama.com)
-ollama pull llama3
+# NOTE: openai-whisper will pull PyTorch (~2 GB). Be patient on first run.
+# If pip hangs on torch, install it manually first:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   then: pip install -r requirements.txt
 
-# 4. Run — the real dataset is already included in the repo
+# 4. Install Ollama  →  https://ollama.com/download
+#    After installing, open a NEW terminal and run:
+ollama pull llama3
+# This downloads the ~4 GB llama3 model. Do it once.
+
+# 5. Make sure Ollama is running before starting the app
+#    (It auto-starts as a background service after installation on Windows)
+#    To verify: open http://localhost:11434 in a browser — should show "Ollama is running"
+
+# 6. Run the pipeline
 python main.py
 
-# (Optional) Generate a fresh synthetic dataset instead of the real one
-# python generate_sample_data.py
+# (Optional) Fast validation — no LLM or microphone needed
+python smoke_test.py
+
+# (Optional) Run full test suite
+python tests.py
+
+# (Optional) Generate a synthetic dataset if you want fresh data
+python generate_sample_data.py
 ```
+
+### Step-by-step setup (macOS / Linux)
+
+```bash
+git clone https://github.com/ayerna/RNTBCI-POC-6-demo.git
+cd RNTBCI-POC-6-demo
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+# Install Ollama: curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3
+python3 main.py
+```
+
+---
+
+## Troubleshooting
+
+### `ModuleNotFoundError: No module named 'ollama'`
+```bash
+pip install ollama
+```
+
+### `ollama._types.ResponseError: model 'llama3:latest' not found`
+Ollama is running but the model isn't downloaded yet:
+```bash
+ollama pull llama3
+```
+
+### `ConnectionError` / `httpx.ConnectError` when querying LLM
+Ollama isn't running. Start it:
+```bash
+# Windows: restart the Ollama app from the system tray
+# Linux/Mac:
+ollama serve
+```
+The app still works — it automatically falls back to the rule engine.
+
+### `pyttsx3` / TTS errors on Windows
+- Make sure **Microsoft Speech Platform** is installed (usually present by default on Windows 10/11)
+- If you get a COM error, try running as Administrator once
+- Disable speech entirely in `config.py`: `SPEECH_ENABLED = False`
+
+### Whisper STT: `No module named 'sounddevice'`
+```bash
+pip install sounddevice
+```
+
+### `FileNotFoundError: bms_processed_1hz.csv`
+The real dataset is included in the repo. If it's somehow missing, regenerate it:
+```bash
+python generate_sample_data.py
+```
+
+### `torch` / CUDA errors from Whisper
+The project uses CPU inference by default (`fp16=False`). No GPU required. If you see CUDA errors:
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+```
+
+### Speech only works once / cuts out
+This was a known bug (pyttsx3 re-entrancy on Windows). Fixed in v4: TTS now runs on a
+dedicated worker thread. Make sure you're on the latest commit.
 
 ---
 
@@ -323,7 +407,7 @@ across all 24 windows — no warnings or critical events detected this trip.
 ```
 Gladwin, There have been 3 warning window(s) out of 48 analysed (6% of trip
 time). High current draw was detected — aggressive acceleration phases occurred.
-(Note: This response was generated by the rule engine — LLM was unavailable.)
+Recent readings show the battery is currently stable.
 ```
 
 ---
@@ -332,7 +416,9 @@ time). High current draw was detected — aggressive acceleration phases occurre
 
 ### Text-to-Speech (TTS)
 - Library: `pyttsx3` (fully offline, no API)
-- Engine initialised **once** at startup
+- Engine runs on a **dedicated worker thread** — safe for concurrent use, no re-entrancy issues on Windows
+- `speak(text)` — non-blocking, queues text to the worker thread
+- `speak_blocking(text)` — waits until speech completes (used for the startup greeting)
 - Every LLM/fallback answer is spoken aloud automatically
 - Long responses truncated to 600 characters for speech
 - Prefers female voice (Zira on Windows) if available
@@ -552,17 +638,21 @@ THRESHOLDS = {
 ```
 RNTBCI-POC-6-demo/
 │
-├── config.py           ← All constants, thresholds, speech config
-├── data_injector.py    ← CSV loader, trip slicer, deque buffer, streaming thread
-├── windowing.py        ← Window stats engine + KB entry generator (expert rules)
-├── kb_store.py         ← Thread-safe KB storage + JSON persistence + fallback summary
-├── llm_agent.py        ← Session, greeting, context builder, Ollama query, fast-path
-├── speech.py           ← pyttsx3 TTS + Whisper STT (graceful degradation)
-├── logger.py           ← Rich-based colour console for all layers
-├── main.py             ← Orchestrator: mode menu, threads, CLI loop
-├── smoke_test.py       ← Fast non-interactive validation
-├── knowledge_base.json ← Auto-generated KB output (gitignored if large)
-└── README.md           ← This file
+├── config.py                ← All constants, thresholds, speech config
+├── data_injector.py         ← CSV loader, trip slicer, deque buffer, streaming thread
+├── windowing.py             ← Window stats engine + KB entry generator (expert rules)
+├── kb_store.py              ← Thread-safe KB storage + JSON persistence + fallback summary
+├── llm_agent.py             ← Session, greeting, context builder, Ollama query, fast-path
+├── speech.py                ← pyttsx3 TTS (worker thread) + Whisper STT (graceful degradation)
+├── logger.py                ← Rich-based colour console for all layers
+├── main.py                  ← Orchestrator: mode menu, threads, CLI loop, spoken greeting
+├── generate_sample_data.py  ← Generates synthetic bms_processed_1hz.csv
+├── smoke_test.py            ← Fast non-interactive validation (no LLM/speech)
+├── tests.py                 ← 62-test production suite (unit + integration + edge cases)
+├── bms_processed_1hz.csv    ← Real 30 600-row EV dataset (included, ~5 MB)
+├── requirements.txt         ← Python dependencies
+├── .gitignore               ← Excludes venv, __pycache__, knowledge_base.json
+└── README.md                ← This file
 ```
 
 ---
@@ -574,6 +664,7 @@ RNTBCI-POC-6-demo/
 | **v1 — Foundation** | CSV injector, deque buffer, fixed-size windows, basic KB generator, Ollama LLM query, CLI loop |
 | **v2 — Intelligence** | Natural-language observations (no raw numbers in text), 12-flag expert rule engine, severity inference, 3 trip-selection strategies, rich console logging, pyttsx3 TTS, Whisper STT, Mode 2 step-by-step, Mode 3 scenario injection with 5 presets |
 | **v3 — Polish** | Session object (driver name + greeted flag), one-time personalised greeting, strict 2-sentence LLM format, `num_predict=60` / `temperature=0.2`, fast-path rule check (skips LLM for simple queries), LLM thread timeout → automatic fallback, compact context builder |
+| **v4 — Production** | Thread-safe TTS worker thread (fixes pyttsx3 re-entrancy on Windows), spoken greeting on driver name entry, first fast-path response says "Hello {name},", removed LLM-unavailability disclosure from fallback responses, 62-test production test suite covering unit/integration/concurrency/edge-cases |
 
 ---
 
