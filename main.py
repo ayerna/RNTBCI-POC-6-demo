@@ -429,13 +429,18 @@ def main() -> None:
     except (EOFError, KeyboardInterrupt):
         name = ""
     llm_agent.set_driver_name(name or "Driver")
+    driver_name = llm_agent.get_driver_name()
     console.print(
-        f"  [dim]Welcome, [bold]{llm_agent.get_driver_name()}[/bold]. "
+        f"  [dim]Welcome, [bold]{driver_name}[/bold]. "
         "BMS assistant will personalise responses for you.[/dim]\n"
     )
 
     # ── 2. Initialise speech ──────────────────────────────────────────────────
     tts_ok, stt_ok = speech_mod.init_speech()
+
+    # Speak the personalised welcome greeting
+    if tts_ok:
+        speech_mod.speak_blocking(f"Hello {driver_name}, welcome. I am your BMS assistant. I will keep you informed about your battery health during the trip.")
 
     # ── 3. Mode selection ─────────────────────────────────────────────────────
     _show_mode_menu()
