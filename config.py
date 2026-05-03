@@ -33,7 +33,7 @@ BUFFER_MAX      = 3600          # rolling buffer max size (1 hour of readings)
 
 # ── LLM ───────────────────────────────────────────────────────────────────────
 OLLAMA_MODEL    = "llama3:latest"
-LLM_TIMEOUT_S   = 45           # seconds before fallback rule engine kicks in
+LLM_TIMEOUT_S   = 120          # seconds before fallback rule engine kicks in
 LLM_MAX_TOKENS  = 60           # keep answers to ~2 sentences (fast + concise)
 LLM_TEMPERATURE = 0.2          # low = more deterministic, less hallucination
 
