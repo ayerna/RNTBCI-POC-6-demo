@@ -28,7 +28,29 @@ _tts_thread: threading.Thread | None = None
 
 def _tts_worker() -> None:
     """Dedicated worker thread — owns the pyttsx3 engine for its lifetime."""
-    global _tts_engine
+    global _tts_engine, _tts_available
+    try:
+        import pyttsx3
+        import pythoncom
+        try:
+            pythoncom.CoInitialize()
+        except Exception:
+            pass
+            
+        _tts_engine = pyttsx3.init()
+        _tts_engine.setProperty("rate",   TTS_RATE)
+        _tts_engine.setProperty("volume", TTS_VOLUME)
+        # prefer a female voice if available
+        voices = _tts_engine.getProperty("voices")
+        for v in voices:
+            if "female" in v.name.lower() or "zira" in v.name.lower():
+                _tts_engine.setProperty("voice", v.id)
+                break
+        _tts_available = True
+    except Exception as e:
+        logger.log_speech(f"TTS engine failed to initialize: {e}")
+        _tts_available = False
+
     while True:
         text = _tts_queue.get()
         if text is None:          # shutdown sentinel
@@ -45,27 +67,15 @@ def _tts_worker() -> None:
 
 
 def _init_tts() -> bool:
-    global _tts_engine, _tts_available, _tts_thread
+    global _tts_thread
     try:
-        import pyttsx3
-        _tts_engine = pyttsx3.init()
-        _tts_engine.setProperty("rate",   TTS_RATE)
-        _tts_engine.setProperty("volume", TTS_VOLUME)
-        # prefer a female voice if available
-        voices = _tts_engine.getProperty("voices")
-        for v in voices:
-            if "female" in v.name.lower() or "zira" in v.name.lower():
-                _tts_engine.setProperty("voice", v.id)
-                break
-        _tts_available = True
-
-        # Start the dedicated TTS worker thread
+        # Start the dedicated TTS worker thread. Initialization happens inside.
         _tts_thread = threading.Thread(
             target=_tts_worker, daemon=True, name="TTSWorker"
         )
         _tts_thread.start()
 
-        logger.log_speech("TTS engine (pyttsx3) ready — worker thread started.")
+        logger.log_speech("TTS engine (pyttsx3) worker thread started.")
         return True
     except Exception as e:
         logger.log_speech(f"TTS unavailable: {e}")
@@ -109,7 +119,7 @@ def speak(text: str) -> None:
     Safe to call from any thread.
     Falls back to silent no-op if TTS is unavailable.
     """
-    if not _tts_available or not SPEECH_ENABLED:
+    if not SPEECH_ENABLED:
         return   # caller already prints text to console
     if not text or not text.strip():
         return
@@ -121,7 +131,7 @@ def speak_blocking(text: str) -> None:
     Speak text and block until the utterance is fully complete.
     Useful for greetings / critical alerts where you want to wait.
     """
-    if not _tts_available or not SPEECH_ENABLED:
+    if not SPEECH_ENABLED:
         return
     if not text or not text.strip():
         return
