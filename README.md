@@ -1,4 +1,4 @@
-# 🔋 RNTBCI-POC-6 — Real-Time EV Battery Management System (BMS) AI Pipeline
+# 🔋 RNTBCI-POC-5 — Real-Time EV Battery Management System (BMS) AI Pipeline
 
 > **A fully demo-ready, interactive AI assistant for EV battery telemetry.**
 > Simulates a real vehicle trip, builds a temporal knowledge base window-by-window,
