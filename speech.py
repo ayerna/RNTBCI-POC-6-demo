@@ -52,7 +52,18 @@ def _tts_worker() -> None:
         _tts_available = False
 
     while True:
-        text = _tts_queue.get()
+        try:
+            text = _tts_queue.get(timeout=0.5)
+        except queue.Empty:
+            # Keep COM message pump alive on Windows while idle
+            if _tts_available:
+                try:
+                    import pythoncom
+                    pythoncom.PumpWaitingMessages()
+                except Exception:
+                    pass
+            continue
+
         if text is None:          # shutdown sentinel
             _tts_queue.task_done()
             break
