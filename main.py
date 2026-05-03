@@ -235,7 +235,7 @@ def _mode_scenario(tts_ok: bool, stt_ok: bool) -> None:
     while True:
         try:
             choice = console.input(
-                "[bold magenta]Select scenario (1-5) or [q]uit to query interface > [/bold magenta]"
+                "[bold magenta]Select scenario (1-5) or Q to quit to query interface > [/bold magenta]"
             ).strip().lower()
         except (EOFError, KeyboardInterrupt):
             break
