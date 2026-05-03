@@ -438,9 +438,9 @@ def main() -> None:
     # ── 2. Initialise speech ──────────────────────────────────────────────────
     tts_ok, stt_ok = speech_mod.init_speech()
 
-    # Speak the personalised welcome greeting
+    # Speak the personalised welcome greeting (non-blocking so menu appears immediately)
     if tts_ok:
-        speech_mod.speak_blocking(f"Hello {driver_name}, welcome. I am your BMS assistant. I will keep you informed about your battery health during the trip.")
+        speech_mod.speak(f"Hello {driver_name}, welcome. I am your BMS assistant. I will keep you informed about your battery health during the trip.")
 
     # ── 3. Mode selection ─────────────────────────────────────────────────────
     _show_mode_menu()
