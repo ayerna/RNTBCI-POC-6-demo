@@ -74,14 +74,16 @@ def _try_fast_path(query: str) -> str | None:
     if not stats:
         return None
 
-    name = _session["driver_name"]
-    q_low = query.lower()
+    name    = _session["driver_name"]
+    is_first = not _session["greeted"]
+    q_low   = query.lower()
 
     for kw, is_simple_fn in _SIMPLE_KEYWORDS.items():
         if kw in q_low and is_simple_fn(stats):
-            total = stats["total_windows"]
+            total  = stats["total_windows"]
+            prefix = f"Hello {name}," if is_first else f"{name},"
             return (
-                f"{name}, Status: Normal. "
+                f"{prefix} Status: Normal. "
                 f"All {total} analysed windows show no critical or warning conditions — "
                 f"the battery is operating within safe parameters."
             )
