@@ -32,7 +32,7 @@ WINDOW_SIZE     = 30            # rows per analysis window (30 s at 1 Hz)
 BUFFER_MAX      = 3600          # rolling buffer max size (1 hour of readings)
 
 # ── LLM ───────────────────────────────────────────────────────────────────────
-OLLAMA_MODEL    = "llama3:latest"
+OLLAMA_MODEL    = "llama3.2:1b"
 LLM_TIMEOUT_S   = 120          # seconds before fallback rule engine kicks in
 LLM_MAX_TOKENS  = 60           # keep answers to ~2 sentences (fast + concise)
 LLM_TEMPERATURE = 0.2          # low = more deterministic, less hallucination
